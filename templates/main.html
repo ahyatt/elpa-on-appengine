@@ -1,0 +1,43 @@
+{{define "main"}}
+<html>
+  {{template "header"}}
+  <body>
+    {{template "topchrome"}}
+    <div class="info">
+      To use, please install Emacs 24.  {{template "name"}} has not been tested with the old <a href="http://repo.or.cz/w/emacs.git/blob_plain/1a0a666f941c99882093d7bd08ced15033bc3f0c:/lisp/emacs-lisp/package.el">package.el available for Emacs 23</a>.  To use, add the following to your initialization file:
+      <pre>
+        (eval-after-load 'package
+          '(add-to-list 'package-archives
+                        '(&quot;{{template "name"}}&quot; . &quot;http://{{template "domain"}}/packages/&quot;)))
+      </pre>
+      After this is evaluated, packages from {{template "name"}} will show up when running <code>M-x list-packages</code>.
+    </div>
+    <div class="upload">
+      Have some cool elisp you want to share (in the form of a single .el file)? 
+      <form method="post" enctype="multipart/form-data" action="{{.UploadURL}}">
+        <input type="file" name="file" />
+        <br>
+        If this is a new version of an existing package, select it here
+        <select name="name">
+          {{range .Packages}}
+          <option value=""></option>
+          <option value="{{.Name}}">{{.Name}}</option>
+          {{end}}
+        </select>
+        <br>
+        <input type="submit" value="Upload" />
+      </form>
+    </div>
+    <div class="packages">
+      <h2>Packages</h2>
+      {{range .Packages}}
+      <div class="package">
+        <span class="name">{{.Name}}:</span> <span class="description">{{.Description}}</span>.
+      </div>
+      {{else}}
+      No packages have been uploaded so far.
+      {{end}}
+    </div>
+  </body>
+</html>
+{{end}}

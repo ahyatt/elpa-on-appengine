@@ -1,0 +1,40 @@
+h1 {
+    font-size:200%;
+    letter-spacing:2px;
+    margin-bottom: 0;
+}
+
+.topchrome {
+    border-bottom:1px solid blue;
+    margin-bottom:20px;
+}
+
+.info {
+    background-color:yellow;
+    padding:20px;
+    border:2px solid;
+    border-radius:25px;
+}
+
+.name {
+    font-weight: bold;
+}
+
+.upload {
+    border-left:2px solid gray;
+    background-color: #eee;
+    padding-left:5px;
+    margin-top: 20px;
+    margin-left: 20px;
+    float:right
+}
+
+.exp {
+    font-size:small;
+}
+
+.prompt>em {
+    font-weight:bold;
+    font-size:medium;
+}
+
