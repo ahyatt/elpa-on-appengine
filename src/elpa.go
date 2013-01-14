@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fileimport
+package elpa
 
 import (
 	"appengine"
 	"appengine/blobstore"
 	"appengine/datastore"
+	"bufio"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -26,31 +27,34 @@ import (
 	"time"
 )
 
-func init() {
-	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/md", metadata)
-	http.HandleFunc("/mdset", metadataset)
-	http.HandleFunc("/packages/archive-contents", archivecontents)
-	http.HandleFunc("/packages/", packages)
-	http.HandleFunc("/", main)
-}
-
-type Package struct {
-	Name          string `datastore:name`
-	Description   string `datastore:description,noindex`
-	Readme        string `datastore:readme,noindex`
-	LatestVersion string `datastore:contentid,noindex`
-}
-
 type Contents struct {
 	BlobKey    appengine.BlobKey `datastore:data`
 	Version    string            `datastore:version`
 	UploadTime time.Time         `datastore:uploadtime`
 }
 
+func init() {
+	http.HandleFunc("/upload", upload)
+	http.HandleFunc("/packages/archive-contents", archivecontents)
+	http.HandleFunc("/packages/", packages)
+	http.HandleFunc("/upload.html", uploadInstructions)
+	http.HandleFunc("/", main)
+}
+
+func uploadInstructions(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	uploadURL, err := blobstore.UploadURL(c, "/upload", nil)
+	w.Header().Set("Content-Type", "text/html")
+	err = templates.ExecuteTemplate(w, "upload", uploadURL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}	
+
 func upload(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	blobs, values, err := blobstore.ParseUpload(r)
+	blobs, _, err := blobstore.ParseUpload(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,9 +65,35 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r,
-		"/md?blobKey="+string(file[0].BlobKey)+
-			"&name="+values.Get("name"), http.StatusFound)
+	reader := blobstore.NewReader(c, file[0].BlobKey)
+	pkg, err := parsePackageVarsFromFile(bufio.NewReader(reader))
+	if err != nil {
+		c.Errorf(fmt.Sprintf("Error reading from upload: %v", err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	key := packageKey(c, pkg.Name)
+	_, err = datastore.Put(c, key, pkg)
+	if err != nil {
+		c.Errorf(fmt.Sprintf("Failed to save package %v", pkg.Name))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	contents := Contents{
+		BlobKey:    file[0].BlobKey,
+		Version:    pkg.LatestVersion,
+		UploadTime: time.Now().UTC(),
+	}
+	_, err = datastore.Put(c, versionKey(c, pkg.LatestVersion, key), &contents)
+	if err != nil {
+		c.Errorf(
+			fmt.Sprintf(
+				"Failed to save contents for version %v, package %v",
+				pkg.LatestVersion, pkg.Name))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func packageKey(c appengine.Context, name string) *datastore.Key {
@@ -79,83 +109,13 @@ type PackageAndBlobKey struct {
 	BlobKey string
 }
 
-func metadata(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	blobkey := r.FormValue("blobKey")
-	var p Package
-	if len(name) > 0 {
-		c := appengine.NewContext(r)
-		err := datastore.Get(c, packageKey(c, name), &p)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else {
-		p = Package{}
-	}
-	err := templates.ExecuteTemplate(w, "md", PackageAndBlobKey{Package: p, BlobKey: blobkey})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func metadataset(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	name := r.FormValue("name")
-	key := packageKey(c, name)
-	version := r.FormValue("version")
-	var p Package
-	err := datastore.Get(c, key, &p)
-	if err != nil && err != datastore.ErrNoSuchEntity {
-		c.Errorf(fmt.Sprintf("Failed to retrieve package %v", name))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	p.Name = name
-	p.Description = r.FormValue("description")
-	p.Readme = r.FormValue("readme")
-	p.LatestVersion = version
-	_, err = datastore.Put(c, key, &p)
-	if err != nil {
-		c.Errorf(fmt.Sprintf("Failed to save package %v", name))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	contents := Contents{
-		BlobKey:    appengine.BlobKey(r.FormValue("blobkey")),
-		Version:    version,
-		UploadTime: time.Now().UTC(),
-	}
-	_, err = datastore.Put(c, versionKey(c, version, key), &contents)
-	if err != nil {
-		c.Errorf(
-			fmt.Sprintf(
-				"Failed to save contents for version %v, package %v",
-				version, name))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusFound)
-}
-
 func main(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	uploadURL, err := blobstore.UploadURL(c, "/upload", nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	q := datastore.NewQuery("Package")
 	var packages []*Package
-	_, err = q.GetAll(c, &packages)
+	_, err := q.GetAll(c, &packages)
 	w.Header().Set("Content-Type", "text/html")
-	templateData := struct {
-		UploadURL string
-		Packages  []*Package
-	}{uploadURL.String(), packages}
-	err = templates.ExecuteTemplate(w, "main", templateData)
+	err = templates.ExecuteTemplate(w, "main", packages)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -178,6 +138,14 @@ func archivecontents(w http.ResponseWriter, r *http.Request) {
 var readmeRE = regexp.MustCompile("-readme.txt$")
 var nameVersionRE = regexp.MustCompile("([a-z\\-]+)([\\d\\.]+).el")
 
+// Serves several package related urls that package.el expects.
+//
+// First are readmes, which are served from
+// /packages/<package-name>-readme.txt.
+//
+// Second are package contents, which exist for all uploaded versions
+// of a packages. They are servered from
+// /packages/<package-name>-<package-version>.el
 func packages(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	w.Header().Set("Content-Type", "text/plain")
@@ -187,17 +155,21 @@ func packages(w http.ResponseWriter, r *http.Request) {
 		var p Package
 		err := datastore.Get(c, packageKey(c, name), &p)
 		if err != nil {
-			http.Error(w, err.Error(),
-				http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if len(p.Readme) == 0 {
+		details, err := decodeDetails(&p.Details)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(details.Readme) == 0 {
 			fmt.Fprintf(w, "%v", p.Description)
 		} else {
 			// These \r's will show up as "^M" in the emacs buffer.
 			// We don't want that, although hopefully package.el will
 			// eventually fix this.
-			fmt.Fprintf(w, "%v", strings.Replace(p.Readme, "\r", "", -1))
+			fmt.Fprintf(w, "%v", strings.Replace(details.Readme, "\r", "", -1))
 		}
 	} else {
 		parts := nameVersionRE.FindStringSubmatch(file)
@@ -231,11 +203,26 @@ func versionList(version string) string {
 	return "(" + strings.Join(parts, " ") + ")"
 }
 
+func requiredList(b *[]byte) string {
+	details, err := decodeDetails(b)
+	if err != nil || len(details.Required) == 0 {
+		// TODO(ahyatt) Log an error here
+		return "nil"
+	}
+	parts := make([]string, 0)
+	for _, require := range details.Required {
+		parts = append(parts, "(" + require.Name + " (" + 
+			strings.Replace(require.Version, ".", " ", -1) + "))")
+	}
+	return "(" + strings.Join(parts, " ") + ")"
+}
+
 var templates = template.Must(template.ParseGlob("templates/*"))
 var archiveContentsTemplate = template.Must(template.New("ArchiveContents").
-	Funcs(template.FuncMap{"versionList": versionList}).
+Funcs(template.FuncMap{"versionList": versionList,
+	"requiredList": requiredList}).
 	Parse(archiveContentsElisp))
 
 var archiveContentsElisp = `(1 {{range .}}
-({{.Name}} . [{{versionList .LatestVersion}} nil "{{.Description}}" single]){{end}})
+({{.Name}} . [{{versionList .LatestVersion}} {{requiredList .Details}} "{{.Description}}" single]){{end}})
 `

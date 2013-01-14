@@ -1,0 +1,10 @@
+Running tests with AppEngine is problematic. "go test" only seems to
+run with a real go installation, not the appengine one. Furthermore,
+running tests with "go test" won't work in the normal directory
+because the non-appengine go command gets confused by the unknown
+appengine packages. Therefore we have to set up a directory with just
+the files needed for testing.
+
+When running tests, GOROOT must point to the non-appengine go root.
+
+Tests should be run with "go test ./testing".

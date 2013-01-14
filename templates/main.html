@@ -12,25 +12,12 @@
       </pre>
       After this is evaluated, packages from {{template "name"}} will show up when running <code>M-x list-packages</code>.
     </div>
-    <div class="upload">
-      Have some cool elisp you want to share (in the form of a single .el file)? 
-      <form method="post" enctype="multipart/form-data" action="{{.UploadURL}}">
-        <input type="file" name="file" />
-        <br>
-        If this is a new version of an existing package, select it here
-        <select name="name">
-          {{range .Packages}}
-          <option value=""></option>
-          <option value="{{.Name}}">{{.Name}}</option>
-          {{end}}
-        </select>
-        <br>
-        <input type="submit" value="Upload" />
-      </form>
-    </div>
     <div class="packages">
       <h2>Packages</h2>
-      {{range .Packages}}
+      <div class="upload">
+        <a href="./upload.html">Upload a package</a>
+      </div>
+      {{range .}}
       <div class="package">
         <span class="name">{{.Name}}:</span> <span class="description">{{.Description}}</span>.
       </div>

@@ -21,12 +21,7 @@ h1 {
 }
 
 .upload {
-    border-left:2px solid gray;
-    background-color: #eee;
-    padding-left:5px;
-    margin-top: 20px;
-    margin-left: 20px;
-    float:right
+    padding-bottom:20px;
 }
 
 .exp {

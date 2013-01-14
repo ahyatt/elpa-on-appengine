@@ -1,0 +1,46 @@
+{{define "upload"}}
+<html>
+  {{template "header"}}
+  <body>
+    <div class="info">
+      To upload a package, make sure it follows standard emacs package
+      forms.  <code>M-x checkdoc</code> can help fix errors.
+
+      Specifically, we look for the name and the description in the
+      first line of the file, the author (not required), version
+      (required) and required packages (not required), and the
+      commentary (not required).
+
+      The structure of these fields must be populated like in the
+      following example:
+      <code><pre>
+;;; sample-test.el --- A sample package
+;;
+;; Copyright (c) 2013 Andrew Hyatt
+;;
+;; Author: Andrew Hyatt <ahyatt@gmail.com>
+;; Homepage: http://ignore.for.now
+;; URL: http://also.ignored
+;; Version: 0.1.2.3
+;; Last-Updated: 19 Aug 2012
+;; Keywords: fee, fi, fo, fum
+;; Package-Requires: ((req1 "1.0.0") (req2 "2.0.0") (req3 "3.0.0"))
+;;
+;; Simplified BSD License
+;;
+;;; Commentary:
+;;
+;; This is the package commentary,
+;; which spans multiple lines.
+;;
+;;; Code:
+;;; Etc...
+      </pre></code>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="{{.}}">
+      <input type="file" name="file" />
+      <input type="submit" value="Upload" />
+    </form>
+  </body>
+</html>
+{{end}}
