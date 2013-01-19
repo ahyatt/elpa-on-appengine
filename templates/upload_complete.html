@@ -1,0 +1,18 @@
+{{define "upload_complete"}}
+<html>
+  {{template "header"}}
+  <body>
+    Here's what we got!  <a href="./">Back to package list</a><p>
+    <span class="fieldname">Package Name:</span><span class="fieldvalue">{{.Pkg.Name}}</span><br/>
+    <span class="fieldname">Description:</span><span class="fieldvalue">{{.Pkg.Description}}</span><br/>
+    <span class="fieldname">Version:</span> <span class="fieldvalue">{{.Pkg.LatestVersion}}</span><br>
+    <span class="fieldname">Author:</span>  <span class="fieldvalue">{{.Pkg.Author}}</span><br>
+    <span class="fieldname">Required:</span> <span class="fieldvalue">
+      {{range .Details.Required}} {{.Name}}-{{.Version}} {{else}} None {{end}}</span><br>
+    <span class="fieldname">Readme:</span><br>
+    <pre>
+    <span class="fieldvalue">{{.Details.Readme}}</span>
+    </pre>
+  </body>
+</html>
+{{end}}

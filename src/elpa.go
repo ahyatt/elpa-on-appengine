@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -38,6 +39,7 @@ func init() {
 	http.HandleFunc("/packages/archive-contents", archivecontents)
 	http.HandleFunc("/packages/", packages)
 	http.HandleFunc("/upload.html", uploadInstructions)
+	http.HandleFunc("/upload_complete.html", uploadComplete)
 	http.HandleFunc("/", main)
 }
 
@@ -50,7 +52,36 @@ func uploadInstructions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}	
+}
+
+func uploadComplete(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	name := r.FormValue("package")
+	var p Package
+	err := datastore.Get(c, packageKey(c, name), &p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	details, err := decodeDetails(&p.Details)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if details.Required == nil {
+		details.Required = make([]PackageRef, 0)
+	}
+	templateData := struct {
+		Pkg  *Package
+		Details  *Details
+	}{&p, details}
+
+	err = templates.ExecuteTemplate(w, "upload_complete", templateData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
 
 func upload(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
@@ -93,7 +124,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/upload_complete.html?package=" +
+		url.QueryEscape(pkg.Name), http.StatusFound)
 }
 
 func packageKey(c appengine.Context, name string) *datastore.Key {

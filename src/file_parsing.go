@@ -37,7 +37,6 @@ func parsePackageVarsFromFile(reader *bufio.Reader) (*Package, error) {
 	pkg := Package{}
 	details := Details{}
 	line, _ := reader.ReadString('\n')
-	fmt.Println("Read line: ", line)
 	nameDescriptParts := nameDescriptionRE.FindStringSubmatch(line)
 	if len(nameDescriptParts) == 3 {
 		pkg.Name = nameDescriptParts[1]
