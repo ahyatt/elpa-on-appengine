@@ -66,9 +66,9 @@ func parsePackageVarsFromFile(reader *bufio.Reader) (*Package, error) {
 						if len(require) > 0 {
 							details.Required = append(details.Required,
 								PackageRef{
-								Name:    require[1],
-								Version: require[2],
-							})
+									Name:    require[1],
+									Version: require[2],
+								})
 						}
 					}
 				}

@@ -72,8 +72,8 @@ func uploadComplete(w http.ResponseWriter, r *http.Request) {
 		details.Required = make([]PackageRef, 0)
 	}
 	templateData := struct {
-		Pkg  *Package
-		Details  *Details
+		Pkg     *Package
+		Details *Details
 	}{&p, details}
 
 	err = templates.ExecuteTemplate(w, "upload_complete", templateData)
@@ -124,7 +124,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/upload_complete.html?package=" +
+	http.Redirect(w, r, "/upload_complete.html?package="+
 		url.QueryEscape(pkg.Name), http.StatusFound)
 }
 
@@ -243,16 +243,16 @@ func requiredList(b *[]byte) string {
 	}
 	parts := make([]string, 0)
 	for _, require := range details.Required {
-		parts = append(parts, "(" + require.Name + " (" + 
-			strings.Replace(require.Version, ".", " ", -1) + "))")
+		parts = append(parts, "("+require.Name+" ("+
+			strings.Replace(require.Version, ".", " ", -1)+"))")
 	}
 	return "(" + strings.Join(parts, " ") + ")"
 }
 
 var templates = template.Must(template.ParseGlob("templates/*"))
 var archiveContentsTemplate = template.Must(template.New("ArchiveContents").
-Funcs(template.FuncMap{"versionList": versionList,
-	"requiredList": requiredList}).
+	Funcs(template.FuncMap{"versionList": versionList,
+		"requiredList": requiredList}).
 	Parse(archiveContentsElisp))
 
 var archiveContentsElisp = `(1 {{range .}}
