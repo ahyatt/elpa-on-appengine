@@ -33,7 +33,7 @@ import (
 
 var elParamRE = regexp.MustCompile("^;; ([\\w\\-]+): (.*)")
 var requiresRE = regexp.MustCompile("\\(([\\w\\-]+) \"([0-9\\.]+)\"\\)")
-var nameDescriptionRE = regexp.MustCompile("^;;; ([\\w-\\-]+)\\.el --- ([\\w\\s]+)")
+var nameDescriptionRE = regexp.MustCompile("^;;; ([\\w-\\-]+)\\.el --- (.*)")
 var headingRe = regexp.MustCompile("^;;; (.*):")
 var textLineRe = regexp.MustCompile("^;; (.*)")
 var dirRe = regexp.MustCompile("^([\\w\\-]+)-([\\d\\.]+)")
