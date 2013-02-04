@@ -45,12 +45,12 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 		cerr <- errors.New("Package definition must start with a open paren")
 		return
 	}
-	tok = <- cout
+	tok = <-cout
 	if tok.Type != SYMBOL && strings.ToLower(tok.StringVal) == "package-definition" {
 		cerr <- errors.New("Package definition must start with '(package-defintion...'")
 		return
 	}
-	tok = <- cout
+	tok = <-cout
 	if tok.Type != STRING {
 		cerr <- errors.New("Expected package name as first element in package definition")
 		return
@@ -59,7 +59,7 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 		cerr <- errors.New(fmt.Sprintf("Package name in package definition (%s) didn't match directory name (%s)", tok.StringVal, pkg.Name))
 		return
 	}
-	tok = <- cout
+	tok = <-cout
 	if tok.Type != STRING {
 		cerr <- errors.New("Expected version number as second element in package definition")
 		return
@@ -68,46 +68,46 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 		cerr <- errors.New(fmt.Sprintf("Package version in package definition (%s) didn't match directory name (%s)", tok.StringVal, pkg.LatestVersion))
 		return
 	}
-	tok = <- cout
+	tok = <-cout
 	if tok.Type != CLOSE_PAREN {
 		if tok.Type != STRING {
 			cerr <- errors.New("Expected description as third element in package definition")
 			return
 		}
 		pkg.Description = tok.StringVal
-		tok = <- cout
+		tok = <-cout
 		if tok.Type != CLOSE_PAREN {
 			if tok.Type != SYMBOL || tok.StringVal != "nil" {
 				if tok.Type != QUOTE {
 					cerr <- errors.New("Unexpected tokens at the fourth element in package definition")
 					return
 				}
-				tok = <- cout
+				tok = <-cout
 				if tok.Type != OPEN_PAREN {
 					cerr <- errors.New("Expected a list of lists at the fourth element in package definition")
 					return
 				}
-				tok = <- cout
+				tok = <-cout
 				for tok.Type == OPEN_PAREN {
-					tok = <- cout
+					tok = <-cout
 					if tok.Type != SYMBOL {
 						cerr <- errors.New("Expected a symbol as the required package name")
 						return
 					}
 					reqPackageName := tok.StringVal
-					tok = <- cout
+					tok = <-cout
 					if tok.Type != STRING {
 						cerr <- errors.New("Expected a string as the required package version")
 						return
 					}
 					reqPackageVersion := tok.StringVal
 					details.Required = append(details.Required, PackageRef{Name: reqPackageName, Version: reqPackageVersion})
-					tok = <- cout
+					tok = <-cout
 					if tok.Type != CLOSE_PAREN {
 						cerr <- errors.New("Required package should just be a 2-element list")
 						return
 					}
-					tok = <- cout
+					tok = <-cout
 				}
 				if tok.Type != CLOSE_PAREN {
 					cerr <- errors.New("Missing closing parenthesis for required versions ")
@@ -120,7 +120,7 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 			}
 		}
 	}
-	tok = <- cout
+	tok = <-cout
 	if tok.Type != CLOSE_PAREN {
 		cerr <- errors.New("Missing closing parenthesis for package definition")
 	}
@@ -136,7 +136,7 @@ func parsePackageDefinition(reader *tar.Reader, pkg *Package, details *Details) 
 	go readPackageDefinition(cout, cerr, pkg, details)
 	bytes := make([]byte, 256)
 	for {
-		n, err := reader.Read(bytes);
+		n, err := reader.Read(bytes)
 		if err == io.EOF {
 			cdone <- true
 			break
@@ -147,14 +147,14 @@ func parsePackageDefinition(reader *tar.Reader, pkg *Package, details *Details) 
 		}
 		for _, b := range bytes[:n] {
 			select {
-			case err = <- cerr:
+			case err = <-cerr:
 				return err
 			default:
 				cin <- int(b)
 			}
 		}
 	}
-	return <- cerr
+	return <-cerr
 }
 
 func parsePackageVarsFromTar(reader *bufio.Reader) (*Package, error) {
@@ -184,7 +184,7 @@ func parsePackageVarsFromTar(reader *bufio.Reader) (*Package, error) {
 			pkg.Name = match[1]
 			pkg.LatestVersion = match[2]
 		} else {
-			if (*dir != filepath.Dir(hdr.Name)) {
+			if *dir != filepath.Dir(hdr.Name) {
 				return nil, errors.New("Tar files must only contain one top-level directory")
 			}
 		}

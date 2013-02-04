@@ -2,9 +2,19 @@
 <html>
   {{template "header"}}
   <body>
+    This repository follows
+    the <a href="http://marmalade-repo.org/doc-files/package.5.html">marmalade
+    package format</a>.
+
+    <form method="post" enctype="multipart/form-data" action="{{.}}">
+      <input type="file" name="file" /><br/>
+      <input type="submit" value="Upload" />
+    </form>
+
+    <h1>Single file format</h1>
     <div class="info">
-      To upload a package, make sure it follows standard emacs package
-      forms.  <code>M-x checkdoc</code> can help fix errors.
+      To upload a single .el file, make sure it follows standard emacs
+      package forms. <code>M-x checkdoc</code> can help fix errors.
 
       Specifically, we look for the name and the description in the
       first line of the file, the author (not required), version
@@ -37,10 +47,47 @@
 ;;; Etc...
       </pre></code>
     </div>
-    <form method="post" enctype="multipart/form-data" action="{{.}}">
-      <input type="file" name="file" />
-      <input type="submit" value="Upload" />
-    </form>
+    <h1>Multiple file format</h1>
+    <div class="info">
+      To upload a multi-file package, upload the tar of the package
+      (uncompressed).
+
+      The tar must have one directory with the name of the file, a
+      dash, and the version number.
+
+      Inside the directory can be any number of files, but what there
+      must be a file with the prefix being the package name and the
+      suffix being <code>-pkg.el</code>.  This must have a single
+      elisp expression of the form:
+      <code>
+      <pre>
+(define-package package-name version [description]
+            [dependency list])
+      </pre>
+      </code>
+      The dependency list is a 2-element list of the package symbol and a
+      version string. Example for something without dependencies:
+      <code>
+      <pre>
+(define-package "go-mode" "20121127.1221" "Major mode for the Go programming language [source: hg]" 'nil)
+      </pre>
+      </code>
+      An example for something with dependencies:
+      <code>
+        <pre>
+          (define-package "helm-gist" "20120820.935" "helm-sources and some utilities for gist. [source: github]" (quote ((helm "20120811") (gist "1.0.1"))))
+        </pre>
+      </code>
+
+      An example of a valid directory layout is:
+      <pre>
+        go-mode-20121127.1221/go-mode-load.el
+        go-mode-20121127.1221/go-mode-pkg.el
+        go-mode-20121127.1221/go-mode.el
+      </pre>
+      A README in the file will be used when displaying information to
+      users looking at that package in emacs.
+    </div>
   </body>
 </html>
 {{end}}

@@ -18,12 +18,20 @@
 
 package elpa
 
+const (
+	SINGLE = iota
+	TAR
+)
+
+type PackageType int8
+
 type Package struct {
-	Name          string `datastore:name`
-	Description   string `datastore:description,noindex`
-	LatestVersion string `datastore:contentid,noindex`
-	Author        string `datastore:author`
-	Details       []byte `datastore:requires`
+	Name          string      `datastore:name`
+	Description   string      `datastore:description,noindex`
+	LatestVersion string      `datastore:contentid,noindex`
+	Author        string      `datastore:author`
+	Details       []byte      `datastore:requires`
+	Type          PackageType `datastore:type`
 }
 
 type Details struct {

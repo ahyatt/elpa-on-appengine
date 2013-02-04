@@ -97,7 +97,22 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reader := blobstore.NewReader(c, file[0].BlobKey)
-	pkg, err := parsePackageVarsFromFile(bufio.NewReader(reader))
+	var pkg *Package
+	switch file[0].ContentType {
+	case "application/x-tar":
+		pkg, err = parsePackageVarsFromTar(bufio.NewReader(reader))
+		if err == nil {
+			pkg.Type = TAR
+		}
+	case "application/octet-stream":
+		pkg, err = parsePackageVarsFromFile(bufio.NewReader(reader))
+		if err == nil {
+			pkg.Type = SINGLE
+		}
+	default:
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
 	if err != nil {
 		c.Errorf(fmt.Sprintf("Error reading from upload: %v", err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -168,7 +183,7 @@ func archivecontents(w http.ResponseWriter, r *http.Request) {
 }
 
 var readmeRE = regexp.MustCompile("-readme.txt$")
-var nameVersionRE = regexp.MustCompile("([a-z\\-]+)([\\d\\.]+).el")
+var nameVersionRE = regexp.MustCompile("([a-z\\-]+)([\\d\\.]+).(el|tar)")
 
 // Serves several package related urls that package.el expects.
 //
@@ -249,12 +264,24 @@ func requiredList(b *[]byte) string {
 	return "(" + strings.Join(parts, " ") + ")"
 }
 
+func getType(t PackageType) string {
+	switch t {
+	case TAR:
+		return "tar"
+	case SINGLE:
+		return "single"
+	}
+	// TODO(ahyatt) Log an error here
+	return "unknown"
+}
+
 var templates = template.Must(template.ParseGlob("templates/*"))
 var archiveContentsTemplate = template.Must(template.New("ArchiveContents").
 	Funcs(template.FuncMap{"versionList": versionList,
-		"requiredList": requiredList}).
+		"requiredList": requiredList,
+		"getType":      getType}).
 	Parse(archiveContentsElisp))
 
 var archiveContentsElisp = `(1 {{range .}}
-({{.Name}} . [{{versionList .LatestVersion}} {{requiredList .Details}} "{{.Description}}" single]){{end}})
+({{.Name}} . [{{versionList .LatestVersion}} {{requiredList .Details}} "{{.Description}}" {{getType .Type}}]){{end}})
 `
