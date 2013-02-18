@@ -24,6 +24,15 @@ import (
 	"archive/tar"
 )
 
+var validEquivalentPkgFiles = []string{
+	`(define-package "sample-test" "0.1.2.3" "A sample package"
+   '((req1 "1.0.0") (req2 "2.0.0") (req3 "3.0.0")))`,
+	`(define-package "sample-test" "0.1.2.3" "A sample package"
+   (quote ((req1 "1.0.0") (req2 "2.0.0") (req3 "3.0.0"))))`,
+	`(DEFINE-PACKAGE "sample-test" "0.1.2.3" "A sample package"
+   (QUOTE ((REQ1 "1.0.0") (REQ2 "2.0.0") (REQ3 "3.0.0"))))`,
+}
+
 func TestParsePackageVarsFromFile_empty(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader(""))
 	_, err := parsePackageVarsFromFile(reader)
@@ -87,15 +96,10 @@ func TestParsePackageVarsFromFile_complete(t *testing.T) {
 	}
 }
 
-var pkgFile string = `
-(define-package "sample-test" "0.1.2.3" "A sample package"
-   '((req1 "1.0.0") (req2 "2.0.0") (req3 "3.0.0")))
-`
-
 func WriteTarFile(t *testing.T, tw *tar.Writer, filename string, contents string) {
 	if err := tw.WriteHeader(&tar.Header{
-		Name: filename,
-		Size: int64(len(contents)),
+		Name:    filename,
+		Size:    int64(len(contents)),
 		ModTime: time.Now(),
 	}); err != nil {
 		t.Fatal("Could not create the header for testing")
@@ -106,7 +110,7 @@ func WriteTarFile(t *testing.T, tw *tar.Writer, filename string, contents string
 func TestParsePackageVarsFromTar_noDirectory(t *testing.T) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
-	WriteTarFile(t, tw, "foobar-pkg.el", pkgFile)
+	WriteTarFile(t, tw, "foobar-pkg.el", validEquivalentPkgFiles[0])
 	WriteTarFile(t, tw, "foobar.el", "test contents")
 	tw.Close()
 	_, err := parsePackageVarsFromTar(bufio.NewReader(buf))
@@ -118,7 +122,7 @@ func TestParsePackageVarsFromTar_noDirectory(t *testing.T) {
 func TestParsePackageVarsFromTar_twoDifferentDirectories(t *testing.T) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
-	WriteTarFile(t, tw, "foo-1.0/foobar-pkg.el", pkgFile)
+	WriteTarFile(t, tw, "foo-1.0/foobar-pkg.el", validEquivalentPkgFiles[0])
 	WriteTarFile(t, tw, "foo-1.2/foobar.el", "test contents")
 	tw.Close()
 	_, err := parsePackageVarsFromTar(bufio.NewReader(buf))
@@ -127,7 +131,7 @@ func TestParsePackageVarsFromTar_twoDifferentDirectories(t *testing.T) {
 	}
 }
 
-func TestParsePackageVarsFromTar_validPkgFile(t *testing.T) {
+func assertValidPkgFile(t *testing.T, pkgFile string) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	WriteTarFile(t, tw, "sample-test-0.1.2.3/sample-test-pkg.el", pkgFile)
@@ -136,34 +140,40 @@ func TestParsePackageVarsFromTar_validPkgFile(t *testing.T) {
 	tw.Close()
 	pkg, err := parsePackageVarsFromTar(bufio.NewReader(buf))
 	if err != nil {
-		t.Fatal("No errors should be detected: ", err)
+		t.Fatal("No errors should be detected: ", err, "for pkg file", pkgFile)
 	}
 	if pkg == nil {
-		t.Fatal("Package should not be nil")
+		t.Fatal("Package should not be nil for pkg file", pkgFile)
 	}
 	if pkg.Name != "sample-test" {
-		t.Error("pkg.Name incorrect: ", pkg.Name)
+		t.Error("pkg.Name incorrect: ", pkg.Name, "for pkg file", pkgFile)
 	}
 	if pkg.Description != "A sample package" {
-		t.Error("pkg.Description incorrect: ", pkg.Description)
+		t.Error("pkg.Description incorrect: ", pkg.Description, "for pkg file", pkgFile)
 	}
 	if pkg.LatestVersion != "0.1.2.3" {
-		t.Error("pkg.Version incorrect: ", pkg.LatestVersion)
+		t.Error("pkg.Version incorrect: ", pkg.LatestVersion, "for pkg file", pkgFile)
 	}
 	details, err := decodeDetails(&pkg.Details)
 	if details == nil {
-		panic("Details is nil!")
+		panic("Details is nil for pkg file" + pkgFile)
 	}
 	if len(details.Required) != 3 {
-		t.Fatal("details.Required should have 3 elements, instead it has ", len(details.Required))
+		t.Fatal("details.Required should have 3 elements, instead it has ", len(details.Required), "for pkg file", pkgFile)
 		// We'll just test the first & last element
 		if details.Required[0].Name != "req1" || details.Required[0].Version != "1.0.0" ||
 			details.Required[2].Name != "req3" || details.Required[3].Version != "3.0.0" {
-			t.Fatal("details.Required incorrect:", details.Required)
+			t.Fatal("details.Required incorrect:", details.Required, "for pkg file", pkgFile)
 		}
 	}
 	if details.Readme != "readme" {
-		t.Fatal("Readme file should be 'readme', instead it is", details.Readme)
+		t.Fatal("Readme file should be 'readme', instead it is", details.Readme, "for pkg file", pkgFile)
+	}
+}
+
+func TestParsePackageVarsFromTar_allValidForms(t *testing.T) {
+	for _, pkgFile := range validEquivalentPkgFiles {
+		assertValidPkgFile(t, pkgFile)
 	}
 }
 
@@ -176,14 +186,14 @@ func parsePackageDefinitionTester(pkg *Package, details *Details, def string) er
 	go readPackageDefinition(cout, cerr, pkg, details)
 	for _, b := range []byte(def) {
 		select {
-		case err := <- cerr:
+		case err := <-cerr:
 			return err
 		default:
 			cin <- int(b)
 		}
 	}
 	cdone <- true
-	return <- cerr
+	return <-cerr
 }
 
 func TestParsePackageVarsFromTar_validMinimalPkgFile(t *testing.T) {
@@ -224,7 +234,7 @@ func assertParsePackageFails(def string, pkg *Package, t *testing.T) {
 }
 
 func TestBadPackageDefs(t *testing.T) {
-	pkg := Package{Name:"foo", LatestVersion:"1.2.3"}
+	pkg := Package{Name: "foo", LatestVersion: "1.2.3"}
 	// wrong name
 	assertParsePackageFails(`(define-package "bar" "1.2.3" "A sample package"
    '((req1 "1.0.0") (req2 "2.0.0") (req3 "3.0.0")))`, &pkg, t)

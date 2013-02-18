@@ -46,7 +46,7 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 		return
 	}
 	tok = <-cout
-	if tok.Type != SYMBOL && strings.ToLower(tok.StringVal) == "package-definition" {
+	if tok.Type != SYMBOL && tok.StringVal == "package-definition" {
 		cerr <- errors.New("Package definition must start with '(package-defintion...'")
 		return
 	}
@@ -78,8 +78,13 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 		tok = <-cout
 		if tok.Type != CLOSE_PAREN {
 			if tok.Type != SYMBOL || tok.StringVal != "nil" {
-				if tok.Type != QUOTE {
-					cerr <- errors.New("Unexpected tokens at the fourth element in package definition")
+				if tok.Type != OPEN_PAREN {
+					cerr <- errors.New("Unexpected tokens at the fourth element in package definition, expected a quote form")
+					return
+				}
+				tok = <-cout
+				if tok.Type != SYMBOL && tok.StringVal != "quote" {
+					cerr <- errors.New("Unexpected tokens at the fourth element in package definition, expected a quote form")
 					return
 				}
 				tok = <-cout
@@ -108,6 +113,11 @@ func readPackageDefinition(cout chan *Token, cerr chan error, pkg *Package, deta
 						return
 					}
 					tok = <-cout
+				}
+				tok = <-cout
+				if tok.Type != CLOSE_PAREN {
+					cerr <- errors.New("Expected closing paren after required package list")
+					return
 				}
 				if tok.Type != CLOSE_PAREN {
 					cerr <- errors.New("Missing closing parenthesis for required versions ")

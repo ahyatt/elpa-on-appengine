@@ -17,12 +17,15 @@
 
 package elpa
 
+import (
+	"strings"
+)
+
 const (
 	OPEN_PAREN = iota
 	CLOSE_PAREN
 	SYMBOL
 	STRING
-	QUOTE
 	EOF
 )
 
@@ -34,6 +37,8 @@ type Token struct {
 var packageDefinitionString string = "define-package"
 
 func parseSimpleSexp(cin chan int, cout chan *Token, cquit chan bool) {
+	parenCount := 0
+	endActions := map[int]func(){}
 	for {
 		var b int
 		select {
@@ -46,11 +51,20 @@ func parseSimpleSexp(cin chan int, cout chan *Token, cquit chan bool) {
 		}
 		switch {
 		case b == '\'':
-			cout <- &Token{Type: QUOTE}
+			cout <- &Token{Type: OPEN_PAREN}
+			cout <- &Token{Type: SYMBOL, StringVal: "quote"}
+			endActions[parenCount] = func() { cout <- &Token{Type: CLOSE_PAREN} }
+			parenCount++
 		case b == '(':
 			cout <- &Token{Type: OPEN_PAREN}
+			parenCount++
 		case b == ')':
 			cout <- &Token{Type: CLOSE_PAREN}
+			if action, ok := endActions[parenCount]; ok {
+				action()
+				delete(endActions, parenCount)
+			}
+			parenCount--
 		case (b >= 'A' && b <= 'Z') ||
 			(b >= 'a' && b <= 'z') ||
 			b == '-':
@@ -64,7 +78,7 @@ func parseSimpleSexp(cin chan int, cout chan *Token, cquit chan bool) {
 				}
 				sym = append(sym, byte(b))
 			}
-			cout <- &Token{Type: SYMBOL, StringVal: string(sym)}
+			cout <- &Token{Type: SYMBOL, StringVal: strings.ToLower(string(sym))}
 		case b == '"':
 			s := make([]byte, 0)
 			for {
