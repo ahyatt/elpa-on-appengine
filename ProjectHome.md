@@ -1,0 +1,3 @@
+This is an implementation of an Emacs Lisp Package Archive that runs on top of App Engine.  It is written in Go.   This code does not run to any publicly accessible ELPA yet.
+
+This is very basic at the moment.  It has no concept of user permissions, and requires users to enter in their own metadata, instead of parsing it from the file.  Because of this, it isn't yet ready for general usage on App Engine yet.
