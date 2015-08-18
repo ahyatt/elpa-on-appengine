@@ -15,9 +15,6 @@
 package elpa
 
 import (
-	"appengine"
-	"appengine/blobstore"
-	"appengine/datastore"
 	"bufio"
 	"fmt"
 	"html/template"
@@ -26,6 +23,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"appengine"
+	"appengine/blobstore"
+	"appengine/datastore"
 )
 
 type Contents struct {
@@ -104,13 +105,13 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			pkg.Type = TAR
 		}
-	case "application/octet-stream":
+	case "application/octet-stream", "text/x-emacs-lisp":
 		pkg, err = parsePackageVarsFromFile(bufio.NewReader(reader))
 		if err == nil {
 			pkg.Type = SINGLE
 		}
 	default:
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Unknown ContentType: "+file[0].ContentType, http.StatusBadRequest)
 	}
 
 	if err != nil {
@@ -221,7 +222,7 @@ func packages(w http.ResponseWriter, r *http.Request) {
 	} else {
 		parts := nameVersionRE.FindStringSubmatch(file)
 		if len(parts) < 3 {
-			http.Error(w, "Invalid package name",
+			http.Error(w, "Invalid package name: "+file,
 				http.StatusInternalServerError)
 			return
 		}
@@ -278,8 +279,8 @@ func getType(t PackageType) string {
 var templates = template.Must(template.ParseGlob("templates/*"))
 var archiveContentsTemplate = template.Must(template.New("ArchiveContents").
 	Funcs(template.FuncMap{"versionList": versionList,
-		"requiredList": requiredList,
-		"getType":      getType}).
+	"requiredList": requiredList,
+	"getType":      getType}).
 	Parse(archiveContentsElisp))
 
 var archiveContentsElisp = `(1 {{range .}}
